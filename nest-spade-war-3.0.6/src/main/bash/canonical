@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+# This script returns the canonical file path for the supplied file.
+#
+# Credit: http://blog.publicobject.com/2006/06/canonical-path-of-file-in-bash.html
+# 
+# Synopsis: canonical file
+#
+
+cd -P -- "$(dirname -- "$1")" &&
+printf '%s\n' "$(pwd -P)/$(basename -- "$1")"

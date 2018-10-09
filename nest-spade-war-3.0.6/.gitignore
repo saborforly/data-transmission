@@ -1,0 +1,7 @@
+.classpath
+.project
+.pydevproject
+.settings
+*~
+target
+src/site/apt

@@ -1,0 +1,2 @@
+# Use SimpleInstrumentationImpl class for tests.
+gov.lbl.nest.jee.monitor.SimpleInstrumentationImpl

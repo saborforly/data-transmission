@@ -1,0 +1,344 @@
+#!/usr/bin/env python
+
+# Requires 'requests' package (http://docs.python-requests.org/) to be available.
+import os
+REQUESTS_PATH=os.environ['HOME'] + '/python/kennethreitz-requests-8477355'
+
+# Prepare environment
+import sys
+pyxml=None
+index = 0
+for p in sys.path:
+    if -1 != p.find('pyxml'):
+         pyxml = p
+    index += 1
+
+if None != pyxml:
+    sys.path.remove(pyxml)
+
+sys.path.append(REQUESTS_PATH)
+import requests
+import xml.etree.ElementTree as ET
+HEADERS = {'content-type': 'application/xml',
+           'accept': 'application/xml'}
+DEBUG = False
+
+# Simple pretty print for *IX
+import os
+def pretty_print(s):
+        os.system("echo '" + str(s) + "' | xmllint -format -")
+
+
+def debug_print(s):
+    if DEBUG:
+        pretty_print(s)
+        print '--------'
+
+
+class FatalError(Exception):
+    def __init__(self, message, errorCode, response):
+        # Call the base class constructor with the parameters it needs
+        Exception.__init__(self, message)
+        self.code = errorCode
+        self.response = response
+
+
+def getApplication(uri):
+    """
+    Returns the Application resource
+    """
+    r = requests.get(uri)
+    if 404 == r.status_code:
+        raise FatalError('Application at "' + uri  + '" not found', r.status_code, r.text)
+    elif 200 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned from "' + uri  + '"', r.status_code, r.text)
+    application = ET.fromstring(r.text)
+    debug_print(ET.tostring(application))
+    return application
+
+
+def prepareItems(items):
+    """
+    Prepares a set of items for a selection document
+    """
+    itemsElement = ET.Element('items')
+    for item in items:
+        itemElement = ET.Element('item')
+        itemElement.text = item
+        itemsElement.append(itemElement)
+    return itemsElement
+
+
+def prepareRoles(roles):
+    """
+    Prepares a set of items for a selection document
+    """
+    rolesElement = ET.Element('roles')
+    for role in roles:
+        roleElement = ET.Element('role')
+        roleElement.text = role
+        rolesElement.append(roleElement)
+    return rolesElement
+
+
+def prepareSelectionDocument(items, topic, roles):
+    """
+    Prepares a Selection document contains the specified items, topic and roles.
+    """
+    selection = ET.Element('selection')
+    if None != items and 0 != len(items):
+        selection.append(prepareItems(items))
+    if None != topic:
+        topicElement = ET.Element('topic')
+        topicElement.text = topic
+        selection.append(topicElement)
+    if None != roles and 0 != len(roles):
+        selection.append(prepareRoles(roles))
+    debug_print(ET.tostring(selection))
+    return selection
+
+
+def executeSelection(uri, items, topic, roles):
+    """
+    Build and posts a Selection to the supplied uri.
+    """
+    document = prepareSelectionDocument(items, topic, roles)
+    r = requests.post(uri, data=ET.tostring(document), headers=HEADERS)
+    if 400 == r.status_code:
+        failure = ET.fromstring(r.text)
+        debug_print(ET.tostring(failure))
+        if None == failure:
+            raise FatalError('Bad Request', 1, r.text)
+        messageElement = failure.find('message')
+        if None == messageElement:
+            raise FatalError(None, 1, r.text)
+        raise FatalError(messageElement.text, 1, r.text)
+    elif 404 == r.status_code:
+        raise FatalError('The operation could not be found', 1, r.text)
+    elif 409 == r.status_code:
+        raise FatalError('Another process has already acted some parts of this request, so this attempt will halt', r.status_code, r.text)
+    elif 200 != r.status_code and 201 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned from "' + uri  + '"', r.status_code, r.text)
+    if None == r.text or "" == r.text:
+        return None
+    digests = ET.fromstring(r.text)
+    debug_print(ET.tostring(digests))
+    return digests
+
+
+def getAssignUri(application):
+    """
+    Returns the URI of the resource that handles assignments.
+    """
+    a = application.find('assign')
+    if None == a:
+        raise FatalError('Assign operation is not available', 1, ET.tostring(application))
+    return a.text
+
+
+def getCreateDocketUri(application):
+    """
+    Returns the URI of the resource that handles creation of new dockets.
+    """
+    c = application.find('create/dockets')
+    if None == c:
+        raise FatalError('Docket Creation operation is not available', 1, ET.tostring(application))
+    return c.text
+
+
+def getCreateTopicUri(application):
+    """
+    Returns the URI of the resource that handles creation of a new topic.
+    """
+    c = application.find('create/topic')
+    if None == c:
+        raise FatalError('Topic creation operation is not available', 1, ET.tostring(application))
+    return c.text
+
+
+def getDocketUri(application):
+    """
+    Returns the URI of the resource that handles returning existing dockets.
+    """
+    c = application.find('dockets')
+    if None == c:
+        raise FatalError('Docket operation is not available', 1, ET.tostring(application))
+    return c.text
+
+
+def getEndorseUri(application):
+    """
+    Returns the URI of the resource that handles endorsing dockets.
+    """
+    e = application.find('endorse')
+    if None == e:
+        raise FatalError('Endorse operation is not available', 1, ET.tostring(application))
+    return e.text
+
+
+def getEndorsementsUri(application):
+    """
+    Returns the URI of the resource that return endorsements.
+    """
+    e = application.find('endorsements')
+    if None == e:
+        raise FatalError('Endorsements operation is not available', 1, ET.tostring(application))
+    return e.text
+
+
+def getLoadUri(application):
+    """
+    Returns the URI of the resource that return endorsements.
+    """
+    e = application.find('load')
+    if None == e:
+        raise FatalError('Load operation is not available', 1, ET.tostring(application))
+    return e.text
+
+
+def getUnassignUri(application):
+    """
+    Returns the URI of the resource that handles assignments.
+    """
+    a = application.find('unassign')
+    if None == a:
+        raise FatalError('Unassign operation is not available', 1, ET.tostring(application))
+    return a.text
+
+
+def displayDigests(digests, xml):
+    if None == digests:
+        return
+    if xml :
+        pretty_print(ET.tostring(digests))
+
+
+def executeDigest(uri, digest):
+    """
+    Posts a Digest to the supplied uri.
+    """
+    r = requests.post(uri, data=digest, headers=HEADERS)
+    if 400 == r.status_code:
+        print r
+        failure = ET.fromstring(r.text)
+        debug_print(ET.tostring(failure))
+        if None == failure:
+            raise FatalError('Bad Request', 1, r.text)
+        messageElement = failure.find('message')
+        if None == messageElement:
+            raise FatalError(None, 1, r.text)
+        raise FatalError(messageElement.text, 1, r.text)
+    elif 404 == r.status_code:
+        raise FatalError('The operation could not be found', 1, r.text)
+    elif 409 == r.status_code:
+        raise FatalError('Another process has already acted some parts of this request, so this attempt will halt', r.status_code, r.text)
+#    elif 201 == r.status_code:
+#        return
+    elif 200 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned from "' + uri  + '"', r.status_code, r.text)
+    created = ET.fromstring(r.text)
+    debug_print(ET.tostring(created))
+    return created
+
+
+if __name__ == '__main__':
+    """Provide a command line interface for a RESTfil API"""
+
+    import argparse
+    parser = argparse.ArgumentParser(description='CLI for a RESTful API',
+                                     epilog='The supported commands are: \
+"assign" which assigns the supplied roles to the specified dockets; \
+"create" which creates the specified dockets unless no items are supplied in which case the topic is created; \
+"dockets" which displays the specified dockets; \
+"endorse" which endorses the specified dockets with the supplied roles; \
+"endorsements" which displays all endorsements by the specified roles; \
+"load" which loads the dockets from a Digest read from standard input; \
+"unassign" which unassigns the supplied roles to the specified dockets if they have not already endorsed them.')
+    parser.add_argument('--after',
+                        dest = 'AFTER',
+                        help = 'For appropriate command, the date and time on or after which information should be included in the results')
+    parser.add_argument('--before',
+                        dest = 'BEFORE',
+                        help = 'For appropriate command, the date and time before which information should be included in the results')
+    parser.add_argument('-d',
+                        action='store_true',
+                        dest='DEBUG',
+                        help='enables debugging output.')
+    parser.add_argument('--max',
+                        help = 'specifies the maximum number of elements to return, if the result has more that the specified max, the rest will be ignored.',
+                        default = None)
+    parser.add_argument('-r',
+                        '--role',
+                        dest = 'ROLE',
+                        action='append',
+                        help = 'specifies a role to be used as part of the command (can be used multiple times).',
+                        default = None)
+    parser.add_argument('-t',
+                        '--topic',
+                        dest = 'TOPIC',
+                        help = 'specifies the topic that is the context for the command.',
+                        default = None)
+    parser.add_argument('-x',
+                        action='store_true',
+                        dest='DISPLAY_XML',
+                        help='displays the result in raw xml.')
+    parser.add_argument('command',
+                         choices=['assign', 'create', 'dockets', 'endorse', 'endorsements', 'load', 'unassign'],
+                         help='the command to execute.')
+    parser.add_argument('items',
+                         action='append',
+                         nargs='*',
+                         help='the list of items on which the command will be executed.')
+
+    args = parser.parse_args()
+
+    if args.DEBUG:
+        DEBUG = True
+        print '--------'
+
+    import subprocess
+    try:
+        applicationUri = os.getenv('DOCKET_APPLICATION', 'http://localhost:8080/dockets/local/report/')
+        application = getApplication(applicationUri)
+        digests = None
+        if 'load' == args.command:
+            uri = getLoadUri(application)
+            digest = sys.stdin.read()
+            digests = executeDigest(uri, digest)
+        else:
+            if 'assign' == args.command:
+                uri = getAssignUri(application)
+            elif 'create' == args.command:
+                if 0 == len(args.items[0]):
+                    uri = getCreateTopicUri(application)
+                else:
+                    uri = getCreateDocketUri(application)
+            elif 'dockets' == args.command:
+                uri = getDocketUri(application)
+            elif 'endorse' == args.command:
+                uri = getEndorseUri(application)
+            if 'endorsements' == args.command:
+                uri = getEndorsementsUri(application)
+                conjunction = '?'
+                if None != args.AFTER:
+                    uri += conjunction + 'after=' + args.AFTER
+                    conjunction = '&'
+                if None != args.BEFORE:
+                    uri += conjunction + 'before=' + args.BEFORE
+                    conjunction = '&'
+                if None != args.MAX:
+                    uri += conjunction + 'max=' + args.MAX
+            elif 'unassign' == args.command:
+                uri = getUnassignUri(application)
+            if None != uri:
+                digests = executeSelection(uri, args.items[0], args.TOPIC, args.ROLE)
+        if 'load' == args.command or 'endorsements' == args.command or 'dockets' == args.command:
+            displayDigests(digests, args.DISPLAY_XML)
+
+    except FatalError as e:
+        if None == e.message:
+            print >> sys.stderr, "Fatal error with no message"
+        else:
+            print >> sys.stderr, e.message
+        sys.exit(e.code)
+

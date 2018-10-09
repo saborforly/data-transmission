@@ -1,0 +1,216 @@
+<project
+    xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Maven Coordinates -->
+    <groupId>gov.lbl.nest</groupId>
+    <artifactId>sentry</artifactId>
+    <version>1.0.0</version>
+    <packaging>war</packaging>
+
+    <!--The Basics -->
+    <name>Sentry</name>
+    <description>This project provides the basic template needed to deploy the sentry-core as a web application.</description>
+    <url>http://nest.lbl.gov/projects/${project.artifactId}</url>
+    <inceptionYear>2011</inceptionYear>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <nest.jee.version>1.0.1</nest.jee.version>
+        <sentry.core.version>${project.version}</sentry.core.version>
+
+        <!-- The following are for JBoss/Wildfly deployment. They can be 
+            overruled by Setting the appropriate value in a profile in the settings.xml 
+            file. -->
+        <jee.datasource.resource>java:jboss/datasources/</jee.datasource.resource>
+        <jee.jpa.libs>../WEB-INF/lib/</jee.jpa.libs>
+    </properties>
+
+    <!-- More Project Information -->
+    <licenses>
+        <license>
+            <name>3-Clause BSD License</name>
+            <url>http://opensource.org/licenses/BSD-3-Clause</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Simon Patton</name>
+            <email>sjpatton@lbl.gov</email>
+            <organization>Lawrence Berkeley National Laboartory</organization>
+            <organizationUrl>http://www.lbl.gov</organizationUrl>
+        </developer>
+    </developers>
+
+    <!-- Environment Settings -->
+    <scm>
+        <connection>scm:git:ssh:git@gitlab.com:nest.lbl.gov/${project.artifactId}.git</connection>
+        <developerConnection>scm:git:ssh:git@gitlab.com:nest.lbl.gov/${project.artifactId}.git</developerConnection>
+        <url>https://gitlab.com/nest.lbl.gov/${project.artifactId}</url>
+    </scm>
+
+    <repositories>
+        <repository>
+            <id>nest-maven2-repository</id>
+            <name>NEST Maven2 Style Repository</name>
+            <url>http://nest.lbl.gov/maven2/repository</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <distributionManagement>
+        <repository>
+            <uniqueVersion>false</uniqueVersion>
+            <id>nest-maven2-projects</id>
+            <name>NEST Maven2 Style Repository</name>
+            <url>scp://nest.lbl.gov/home/nest/public_html/maven2/repository/</url>
+        </repository>
+        <site>
+            <id>nest-projects-website</id>
+            <url>scp://nest.lbl.gov/home/nest/public_html/projects/${project.artifactId}</url>
+        </site>
+    </distributionManagement>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>javax</groupId>
+            <artifactId>javaee-api</artifactId>
+            <version>7.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>[1.7,)</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>gov.lbl.nest</groupId>
+            <artifactId>nest-jee</artifactId>
+            <version>${nest.jee.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>gov.lbl.nest</groupId>
+            <artifactId>sentry-core</artifactId>
+            <version>${sentry.core.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>1.7.10</version>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+
+        <plugins>
+
+            <plugin>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>3.0.0</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.6.1</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-site-plugin</artifactId>
+                <version>3.6</version>
+                <configuration>
+                    <locales>en</locales>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.20</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/Abstract*</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+        </plugins>
+
+        <extensions>
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-ssh</artifactId>
+                <version>2.12</version>
+            </extension>
+        </extensions>
+
+    </build>
+
+    <reporting>
+
+        <excludeDefaults>true</excludeDefaults>
+        <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.10.4</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-report-plugin</artifactId>
+                <version>2.20</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <version>2.9</version>
+                <configuration>
+                    <dependencyDetailsEnabled>false</dependencyDetailsEnabled>
+                    <dependencyLocationsEnabled>false</dependencyLocationsEnabled>
+                </configuration>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>scm</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+            </plugin>
+
+        </plugins>
+
+    </reporting>
+
+</project>

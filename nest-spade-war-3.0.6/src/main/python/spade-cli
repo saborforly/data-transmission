@@ -1,0 +1,521 @@
+#!/usr/bin/env python
+
+# Prepare environment
+import os
+import sys
+
+import requests
+import xml.etree.ElementTree as ET
+
+
+pyxml = None
+index = 0
+for p in sys.path:
+    if -1 != p.find('pyxml'):
+         pyxml = p
+    index += 1
+
+if None != pyxml:
+    sys.path.remove(pyxml)
+
+HEADERS = {'content-type': 'application/xml',
+           'accept': 'application/xml'}
+DEBUG = False
+
+# Simple pretty print for *IX
+def pretty_print(s):
+    if DEBUG:
+        os.system("echo '" + str(s) + "' | xmllint -format -")
+        print '--------'
+
+class FatalError(Exception):
+    def __init__(self, message, errorCode, response):
+        # Call the base class constructor with the parameters it needs
+        Exception.__init__(self, message)
+        self.code = errorCode
+        self.response = response
+
+
+def getApplication(uri):
+    """
+    Returns the Application resource
+    """
+    r = requests.get(uri)
+    if 404 == r.status_code:
+        raise FatalError('Application at "' + uri + '" not found', r.status_code, r.text)
+    elif 200 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned from "' + uri + '"', r.status_code, r.text)
+    application = ET.fromstring(r.text)
+    pretty_print(ET.tostring(application))
+    return application
+
+
+def displaySuspension(loads):
+    """
+    Displays whether this application is suspended or not
+    """
+    if 'true' == loads.find('totals/suspended').text:
+        print '  The application is suspended'
+    else:
+        print '  The application is running'
+
+
+def displayStatus(application):
+    print 'Status for SPADE with identity : ' + application.find('identity').text
+    displaySuspension(application.find('loads'))
+    counts = application.find('counts/totals')
+    for count in [ 'executing', 'pending', 'suspended' ]:
+        value = counts.find(count).text
+        if '1' == value:
+            plural = 'y'
+            toBe = 'is'
+        else:
+            plural = 'ies'
+            toBe = 'are'
+        print '  There ' + toBe + ' ' + value + ' ' + count + ' activit' + plural
+
+
+def getCounts(application):
+    """
+    Returns the count of each activity for the applications
+    """
+    countsUri = application.find('counts/uri').text
+    r = requests.get(countsUri)
+    if 404 == r.status_code:
+        raise FatalError('Counts are not available from ' + uri, r.status_code, r.text)
+    elif 200 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned from "' + countsUri + '"', r.status_code, r.text)
+    counts = ET.fromstring(r.text)
+    pretty_print(ET.tostring(counts))
+    return counts
+
+
+def getLoads(application):
+    """
+    Returns the load for each activity for the applications
+    """
+    loadsUri = application.find('loads/uri').text
+    r = requests.get(loadsUri)
+    if 404 == r.status_code:
+        raise FatalError('Loads are not available from ' + uri, r.status_code, r.text)
+    elif 200 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned from "' + loadsUri + '"', r.status_code, r.text)
+    loads = ET.fromstring(r.text)
+    pretty_print(ET.tostring(loads))
+    return loads 
+
+
+def prepareBundlesDocument(bundles):
+    """
+    Prepares a Bundles document contains the specified bundle identities
+    """
+    document = ET.Element('bundles')
+    if None != bundles:
+        for bundle in bundles:
+            bundleElement = ET.Element('bundle')
+            bundleElement.text = bundle
+            document.append(bundleElement)
+    pretty_print(ET.tostring(document))
+    return document
+
+
+def getPlacements(application, bundles):
+    """
+    Returns the placements of each specified bundle
+    """
+    placementUri = application.find('placement').text
+    document = prepareBundlesDocument(bundles)
+    r = requests.get(placementUri, data=ET.tostring(document), headers=HEADERS)
+    if 200 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned from "' + placementUri + '"', r.status_code, r.text)
+    placements = ET.fromstring(r.text)
+    pretty_print(ET.tostring(placements))
+    return placements
+
+
+def displayPlacements(placements):
+    """
+    Displays the placement of bundles in the warehouse
+    """
+    p = placements.findall('placement')
+    for placement in p:
+        print 'Identity: ' + placement.find('identity').text
+        place = placement.find('data')
+        if None != place:
+            print '  Data:       ' + place.text
+        place = placement.find('metadata')
+        if None != place:
+            print '  Metadata:   ' + place.text
+        place = placement.find('wrapped')
+        if None != place:
+            print '  Wrapped:    ' + place.text
+        place = placement.find('compressed')
+        if None != place:
+            print '  Compressed: ' + place.text
+
+
+def displayNameResources(application, searchPath):
+    """
+    Displays the name and description of all named resources in the specified searchPath
+    """
+    c = application.findall(searchPath)
+    if 0 == len(c):
+        print '* None *'
+    for named_resource in c:
+        desciptionElement = named_resource.find('description')
+        if None == desciptionElement:
+            description = ''
+        else:
+            description = ' : ' + desciptionElement.text
+        print named_resource.find('name').text + description
+
+
+def getNameResource(application, name, searchPath):
+    """
+    Returns the URI of the application_action resource if the supplied command is an application_action's name.
+    """
+    c = application.findall(searchPath)
+    for resource in c:
+        if command == resource.find('name').text:
+            return resource
+    return None
+
+
+def executeNamedResource(application, name, xpath, action):
+    """
+    Executes, if found, the named resource us the specified action method.
+    """
+    resource = getNameResource(application, name, xpath)
+    if None == resource:
+        return False
+    action(resource)
+    return True
+
+
+def displayFlow(resource):
+    r = requests.get(resource.find('uri').text, headers=HEADERS)
+    if 200 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned when trying to retrieve flow', r.status_code, r.text)
+    flow = ET.fromstring(r.text)
+    pretty_print(ET.tostring(flow))
+    print flow.find('subject').text
+    slices = flow.findall('slices/slice')
+    if 0 == len(slices):
+        print '  * Empty *'
+    for slice in slices:
+        print '  ' + slice.find('when_taken').text + '  ' + slice.find('bytes').text
+
+
+def displayAction(action, response):
+    descriptionElement = action.find('description')
+    if None == descriptionElement:
+        description = action.find('name').text
+    else:
+        description = descriptionElement.text
+    print 'Successfully initiated "' + description + '"'
+    report = ET.fromstring(response.text)
+    pretty_print(ET.tostring(report))
+
+
+def executeBundleAction(bundle_action, bundles):
+    document = prepareBundlesDocument(bundles)
+    r = requests.post(bundle_action.find('uri').text, data=ET.tostring(document), headers=HEADERS)
+    if 200 != r.status_code and 202 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned when trying to initiate "' + bundle_action.find('name').text + '"', r.status_code, r.text)
+    displayAction(bundle_action, r)
+
+
+def prepareActivitiesDocument(activities):
+    """
+    Prepares a Activities document contains the specified activity names
+    """
+    document = ET.Element('activities')
+    for activity in activities:
+        activityElement = ET.Element('activity')
+        activityElement.text = activity
+        document.append(activityElement)
+    pretty_print(ET.tostring(document))
+    return document
+
+
+def executeActivityAction(activity_action, activities):
+    document = prepareActivitiesDocument(activities)
+    r = requests.post(activity_action.find('uri').text, data=ET.tostring(document), headers=HEADERS)
+    if 200 != r.status_code and 202 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned when trying to initiate "' + activity_action.find('name').text + '"', r.status_code, r.text)
+    displayAction(activity_action, r)
+
+
+def executeApplicationAction(application_action):
+    r = requests.post(application_action.find('uri').text, headers=HEADERS)
+    if 200 != r.status_code and 202 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned when trying to initiate "' + application_action.find('name').text + '"', r.status_code, r.text)
+    displayAction(application_action, r)
+
+
+def prepareRetriesDocument(outbound, shipper, gap, files):
+    """
+    Prepares a Retries document contains the specified retry requests
+    """
+    document = ET.Element('retries')
+    if None != outbound:
+        outboundElement = ET.Element('outbound')
+        outboundElement.text = outbound
+        document.append(outboundElement)
+    if None != shipper:
+        shipperElement = ET.Element('shipper')
+        shipperElement.text = shipper
+        document.append(shipperElement)
+    if None != gap:
+        gapElement = ET.Element('gap')
+        gapElement.text = str(gap)
+        document.append(gapElement)
+    if None != files:
+        for file in files:
+            fileElement = ET.Element('file')
+            fileElement.text = file
+            document.append(fileElement)
+    pretty_print(ET.tostring(document))
+    return document
+
+
+def executeRetriesAction(retries_action, outbound, shipper, gap, files):
+    document = prepareRetriesDocument(outbound, shipper, gap, files)
+    r = requests.post(retries_action.find('uri').text, data=ET.tostring(document), headers=HEADERS)
+    if 200 != r.status_code and 202 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned when trying to initiate "' + retries_action.find('name').text + '"', r.status_code, r.text)
+    displayAction(retries_action, r)
+
+
+def displayDigest(digest, leader):
+    print leader + digest.find('subject').text
+    changes = digest.findall('issued/change')
+    if 0 == len(changes):
+        print leader + '  * Empty *'
+    for change in changes:
+        print leader + '  ' + change.find('item').text + ' : ' + change.find('time').text
+
+
+def displayTimeStamps(stamper):
+    uri = stamper.find('uri').text
+    r = requests.get(uri, headers=HEADERS)
+    if 200 != r.status_code:
+        raise FatalError('Unexpected status (' + str(r.status_code) + ') returned when trying to retrieve time-stamps', r.status_code, r.text)
+    timestamps = ET.fromstring(r.text)
+    pretty_print(ET.tostring(timestamps))
+    digests = timestamps.findall('digest')
+    if 0 == len(digests):
+        displayDigest(timestamps, '')
+    else:
+        print timestamps.find('subject').text
+        for digest in digests:
+            displayDigest(digest, '  ')
+
+class ActivityFunction:
+    """
+    This class binds a set of activities to a function execution call.
+    """
+    def __init__(self, activities):
+        self.activities = activities
+
+    def execute(self, action):
+        executeActivityAction(action, self.activities)
+
+
+class BundleFunction:
+    """
+    This class binds a set of bundles to a function execution call.
+    """
+    def __init__(self, bundles):
+        self.bundles = bundles
+
+    def execute(self, action):
+        executeBundleAction(action, self.bundles)
+
+
+class RetryFunction:
+    """
+    This class binds a set of retries to a function execution call.
+    """
+    def __init__(self, outbound, shipper, gap, files):
+        self.files = files
+        self.gap = gap
+        self.outbound = outbound
+        self.shipper = shipper
+
+    def execute(self, action):
+        executeRetriesAction(action, self.outbound, self.shipper, self.gap, self.files)
+
+
+if __name__ == '__main__':
+    import sys
+    import argparse
+    parser = argparse.ArgumentParser(description='Command Line interface to SPADE.')
+    parser.add_argument('-a',
+                      '--activity',
+                      dest='ACTIVITY',
+                      help='applies the commands to the specified activity, if applicable. May be specified multiple times.',
+                      action='append')
+    parser.add_argument('-b',
+                      '--bundle',
+                      dest='BUNDLE',
+                      help='applies the commands to the specified bundle, if applicable. May be specified multiple times for some commands.',
+                      action='append')
+    parser.add_argument('--file_activities',
+                      dest='FILE_ACTIVITIES',
+                      help='specified the file from which to read a set of activities to which the commands will be applied.',
+                      action='store')
+    parser.add_argument('--file_bundles',
+                      dest='FILE_BUNDLES',
+                      help='specified the file from which to read a set of bundles to which the commands will be applied.',
+                      action='store')
+    parser.add_argument('--file_retries',
+                      dest='FILE_RETRIES',
+                      help='specified the file from which to read a set of shipped files to which the commands will be applied.',
+                      action='store')
+    parser.add_argument('-g',
+                      '--gap',
+                      dest='GAP',
+                      help='the time between "now" and a time relevant to the command to be executed.',
+                      type=int)
+    parser.add_argument('-n',
+                      '--neighbor',
+                      dest='NEIGHBOR',
+                      help='specifies the neighboring SPADE instances to use with commands that act can be targeted to a single neighbor.')
+    parser.add_argument('-r',
+                      '--retry',
+                      dest='RETRY',
+                      help='applies the commands to the specified shipped file, if applicable. May be specified multiple times for some commands.',
+                      action='append')
+    parser.add_argument('-s',
+                      '--shipper',
+                      dest='SHIPPER',
+                      help='Specifies the shipper to be used with respect to any specified retries.')
+    parser.add_argument('-t',
+                      '--ticket',
+                      dest='TICKET',
+                      help='specifies the ticket to use for commands that act on a single ticket.',
+                      action='append')
+    parser.add_argument('-d',
+                      '--debug',
+                      dest='DEBUG',
+                      help='print out RESTful documents.',
+                      action='store_true',
+                      default=False)
+    parser.add_argument('args', nargs=argparse.REMAINDER)
+    options = parser.parse_args()
+    args = options.args
+
+    if 1 > len(args):
+        commands = []
+    else:
+        commands = args[:]
+
+    if options.DEBUG:
+        DEBUG = True
+        print '--------'
+    try:
+        applicationUri = os.getenv('SPADE_APPLICATION', 'http://localhost:8080/spade/local/report/')
+
+        application = getApplication(applicationUri)
+        if 0 == len(commands):
+            displayStatus(application)
+            sys.exit(1)
+        
+        if (None != options.ACTIVITY and 0 != len(options.ACTIVITY)) or None != options.FILE_ACTIVITIES:
+            if None == options.FILE_ACTIVITIES:
+                activityFunction = ActivityFunction(options.ACTIVITY)
+            else:
+                activities_file = open(options.FILE_ACTIVITIES)
+                activities = [x.strip('\n') for x in activities_file.readlines()]
+                if None != options.ACTIVITY and 0 != len(options.ACTIVITY):
+                    activities.extend(options.ACTIVITY)
+                activityFunction = ActivityFunction(activities)
+        else:
+            activityFunction = None;
+
+        if (None != options.BUNDLE and 0 != len(options.BUNDLE)) or None != options.FILE_BUNDLES:
+            if None == options.FILE_BUNDLES:
+                bundleFunction = BundleFunction(options.BUNDLE)
+            else:
+                bundles_file = open(options.FILE_BUNDLES)
+                bundles = [x.strip('\n') for x in bundles_file.readlines()]
+                if None != options.BUNDLE and 0 != len(options.BUNDLE):
+                    bundles.extend(options.BUNDLE)
+                bundleFunction = BundleFunction(bundles)
+        else:
+            bundleFunction = None;
+
+        if (None != options.RETRY and 0 != len(options.RETRY)) or None != options.FILE_RETRIES:
+            if None == options.FILE_RETRIES:
+                retryFunction = RetryFunction(None, options.SHIPPER, None, options.RETRY)
+            else:
+                retries_file = open(options.FILE_RETRIES)
+                retries = [x.strip('\n') for x in retries_file.readlines()]
+                if None != options.RETRY and 0 != len(options.RETRY):
+                    retries.extend(options.RETRY)
+                retryFunction = RetryFunction(None, options.SHIPPER, None, retries)
+        elif None != options.GAP:
+            retryFunction = RetryFunction(None, None, options.GAP, None)
+        else:
+            retryFunction = None;
+
+        for command in commands:
+            if 'loads' == command:
+                getLoads(application)
+            elif 'counts' == command:
+                getCounts(application)
+            elif 'placements' == command:
+                placements = getPlacements(application, options.BUNDLE)
+                displayPlacements(placements)
+            elif 'timestamps' == command:
+                if None == options.BUNDLE:
+                    if None == options.TICKET:
+                        pass
+                    elif 1 == len(options.TICKET):
+                        displayTimeStamps(application.find('time_stamps').text + '?ticket=' + options.TICKET[0])
+                    else:
+                        raise FatalError('Only one ticket can be requested using ' + command, 400, '')
+                else:
+                    if None != options.TICKET:
+                        raise FatalError('Either a ticket OR a bundle can be requested using ' + command, 400, '')
+                    elif 1 == len(options.BUNDLE):
+                        displayTimeStamps(application.find('time_stamps').text + '?bundle=' + options.BUNDLE[0])
+                    else:
+                        raise FatalError('Only one bundle can be requested using ' + command, 400, '')
+            elif 'application_actions' == command:
+                displayNameResources(application, 'actions/[name="application"]/action')
+            elif 'activity_actions' == command:
+                displayNameResources(application, 'actions/[name="activity"]/action')
+            elif 'bundle_actions' == command:
+                displayNameResources(application, 'actions/[name="bundle"]/action')
+            elif 'retry_actions' == command:
+                displayNameResources(application, 'actions/[name="retry"]/action')
+            elif 'flows' == command:
+                displayNameResources(application, 'flows/flow')
+            elif 'stampers' == command:
+                displayNameResources(application, 'time_stampers/stamper')
+            else:
+                if executeNamedResource(application, command, 'flows/flow', displayFlow):
+                    pass
+                elif None != retryFunction and executeNamedResource(application, command, 'actions/[name="retry"]/action', retryFunction.execute):
+                    pass
+                elif None != bundleFunction and executeNamedResource(application, command, 'actions/[name="bundle"]/action', bundleFunction.execute):
+                    pass
+                elif None != activityFunction and executeNamedResource(application, command, 'actions/[name="activity"]/action', activityFunction.execute):
+                    pass
+                elif executeNamedResource(application, command, 'actions/[name="application"]/action', executeApplicationAction):
+                    pass
+                elif executeNamedResource(application, command, 'time_stampers/stamper', displayTimeStamps):
+                    pass
+                else:
+                    print "Unrecognized command : " + command
+                    sys.exit(1)
+
+    except FatalError as e:
+        print >> sys.stderr, e.message
+        sys.exit(e.code)
+    except requests.exceptions.ConnectionError:
+        print >> sys.stderr, 'Unable to connect to server'
+        sys.exit(3)
+                      

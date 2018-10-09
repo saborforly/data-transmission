@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<registration>
+    <localId>4</localId>
+    <dropBox>
+        <location>
+            <host>localhost</host>
+            <directory>~/spade/dropbox/scenario/external</directory>
+        </location>
+        <pattern>
+            <regex>mock.*</regex>
+            <semaphoreSuffix>.sem</semaphoreSuffix>
+        </pattern>
+        <mapping>
+            <locatorClass>gov.lbl.nest.spade.metadata.ReadFromSemaphore</locatorClass>
+        </mapping>
+    </dropBox>
+    <warehouse>false</warehouse>
+    <outboundTransfers>
+        <name>Loopback to Self</name>
+    </outboundTransfers>
+</registration>

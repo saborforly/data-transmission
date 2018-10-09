@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# usage: recover_instance token
+#
+# Removed the Lazarus data structures related to the workflow instance
+#   containing the supplied token
+#
+
+script_dir=`dirname ${0}`
+cmd=`basename ${0}`
+
+instance=`${script_dir}/find_instance ${1}`
+result=${?}
+if [ 0 != ${result} ] ; then
+  exit ${result}
+elif [ "X" = "X${instance}" ] ; then
+  echo "${cmd}: failed to find workflow instance contain the supplied token" >&2
+  exit 2
+fi
+
+abridged=`readlink -f ${instance}/abridged`
+echo $abridged
+result=${?}
+if [ 0 != ${result} ] ; then
+  echo "${cmd}: failed to recover the workflow instance contain the supplied token" >&2
+  exit ${result}
+fi

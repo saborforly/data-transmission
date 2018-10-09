@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sentryConfig>
+    <actions>
+        <action>
+            <name>SyphonFromPMT</name>
+            <task>frequent</task>
+            <class>cn.ac.ihep.pmtfts.actions.Syphon</class>
+                  <init-param>
+                        <param-name>base</param-name>
+                        <param-value>/home/sabor/test</param-value>
+                       
+                  </init-param>
+                  <init-param>
+                        <param-name>dropbox</param-name>
+                        <param-value>/home/sabor/spade/dropbox</param-value>
+                  </init-param>
+                  <init-param>
+                        <param-name>role</param-name>
+                        <param-value>SyphonFromPMT</param-value>
+                  </init-param>
+        </action>
+        <action>
+            <name>SyphonFromPMT</name>
+            <task>frequent</task>
+            <class>cn.ac.ihep.pmtfts.actions.Syphon</class>
+                  <init-param>
+                        <param-name>base</param-name>
+                        <param-value>/home/sabor/test1111</param-value>           
+                  </init-param>
+                  <init-param>
+                        <param-name>dropbox</param-name>
+                        <param-value>/home/sabor/spade/dropbox</param-value>
+                  </init-param>
+                  <init-param>
+                        <param-name>role</param-name>
+                        <param-value>SyphonFromPMT</param-value>
+                  </init-param>
+        </action>
+     </actions>
+</sentryConfig>

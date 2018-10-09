@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+# usage: remove_token token
+#
+# Removed the Lazarus data structures related to the supplied token
+#
+
+cmd=`basename ${0}`
+
+if [ "X" = "X${1}" ] ; then
+  echo "${cmd}: no token specified"
+  exit 1
+fi
+
+regs=`find ~/spade/cache/lazarus/registrar -name registrations`
+result=${?}
+if [ 0 != ${result} ] ; then
+  echo "${cmd}: find command failed" >&2
+  exit ${result}
+elif [ "X" = "X${regs}" ] ; then
+  echo "${cmd}: failed to find the list of all registrations" >&2
+  exit 2
+fi
+
+found=`grep -l "^${1}$" ${regs}`
+result=${?}
+if [ 0 != ${result} ] ; then
+  echo "${cmd}: failed to find the registration contains the specified token" >&2
+  exit ${result}
+fi
+first=false
+for file in ${found} ; do
+  if [ "false" = "${first}" ] ; then
+    first=true
+  else
+    echo "${cmd}: more than one registration contained the specified token" >&2
+    exit 3
+  fi
+done
+
+dir=`dirname ${found}`
+echo ${dir}

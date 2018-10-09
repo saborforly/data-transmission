@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<registration>
+    <localId>3</localId>
+    <dropBox>
+        <location>
+            <host>localhost</host>
+            <directory>~/spade/dropbox/scenario/connected</directory>
+        </location>
+        <pattern>
+            <regex>mock.*</regex>
+            <semaphoreSuffix>.sem</semaphoreSuffix>
+        </pattern>
+        <mapping>
+            <dataSuffix>.data</dataSuffix>
+        </mapping>
+    </dropBox>
+    <warehouse>false</warehouse>
+    <outboundTransfers>
+        <name>Ship to Receiver</name>
+    </outboundTransfers>
+</registration>

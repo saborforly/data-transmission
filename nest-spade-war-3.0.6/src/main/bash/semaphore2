@@ -1,0 +1,93 @@
+#!/bin/bash
+#
+# This script is used to submit a file for transfer via SPADE using the mirroring configuration.
+# 
+# Synopsis: mirror [-d dropbox][-o owner] file
+#
+
+usage()
+{
+cat << EOF
+usage: $0 [-d dropbox][-o owner][-s suffix] file
+
+This script is used to submit a file for transfer via SPADE
+using the mirroring configuration.
+
+OPTIONS:
+   -d      the location of the dropbox (default is current directory)
+   -o      the owner of the file is o
+   -s      the suffix to use on the semaphore file (default is ".sem")
+EOF
+}
+
+while getopts ":d:o:s:x:" opt; do
+     case ${opt} in
+         h)
+             usage
+             exit 1
+             ;;
+         d)
+             DROPBOX=$OPTARG
+             ;;
+         o)
+             OWNER=$OPTARG
+             ;;
+         s)
+             SEM_SUFFIX=$OPTARG
+             ;;
+         x)
+             DATA_SUFFIX=$OPTARG
+             ;;
+         ?)
+             usage
+             exit
+             ;;
+     esac
+done
+shift $((${OPTIND} -1 ))
+
+if [ "X" == "X${1}" ] ; then
+    echo "no file specified" 1>&2
+    exit 1
+fi
+scriptdir=`dirname ${0}`
+FILE=`${scriptdir}/canonical ${1} 2>/dev/null`
+if [ 0 != ${?} ] ; then
+    echo "no such file as \"${1}\"" 1>&2
+    exit 2
+fi
+if [ ! -e ${FILE} ] ; then
+    echo "no such file as \"${1}\"" 1>&2
+    exit 2
+fi
+
+if [ "X" == "X${DROPBOX}" ] ; then
+    DROPBOX=`pwd`
+fi
+
+if [ "X" == "X${OWNER}" ] ; then
+    if [ "Darwin" == `uname` ] ; then
+        OWNER=`stat -f%Su ${FILE}`
+    else
+        OWNER=`stat -c%U ${FILE}`
+    fi
+fi
+
+if [ "X" == "X${SEM_SUFFIX}" ] ; then
+    SEM_SUFFIX=".sem"
+fi
+
+if [ "X" == "X${DATA_SUFFIX}" ] ; then
+    BASE=${FILE}
+else
+    BASE=${FILE%${DATA_SUFFIX}}
+fi
+
+SEMAPHORE=${DROPBOX}/`basename ${BASE}`${SEM_SUFFIX}
+if [ -e ${SEMAPHORE} ] ; then
+    echo "semaphore file \"${1}\" already exists" 1>&2
+    exit 3
+fi
+
+echo "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><metadata><sourcefile>${FILE}</sourcefile><owner>${OWNER}</owner></metadata>" > ${SEMAPHORE}.tmp
+mv ${SEMAPHORE}.tmp ${SEMAPHORE}

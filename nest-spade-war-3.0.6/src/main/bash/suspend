@@ -1,0 +1,2 @@
+#!/bin/sh
+curl -d suspend=true http://localhost:8080/spade/local/command/suspend  > /dev/null

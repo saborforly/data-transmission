@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# JBoss standalone control script
+#
+# chkconfig: - 80 20
+# description: JBoss AS Standalone
+# processname: standalone
+
+JBOSS_INIT_D=this_home/server/jboss-as-7.1.1.Final/bin/init.d
+JBOSS_CONF="$JBOSS_INIT_D/jboss-as.conf"
+export JBOSS_CONF
+$JBOSS_INIT_D/jboss-as-standalone.sh $*

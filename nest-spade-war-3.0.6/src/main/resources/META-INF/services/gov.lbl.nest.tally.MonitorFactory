@@ -1,0 +1,2 @@
+# Use SimpleMonitorFactory class for tests.
+gov.lbl.nest.tally.simple.SimpleMonitorFactory

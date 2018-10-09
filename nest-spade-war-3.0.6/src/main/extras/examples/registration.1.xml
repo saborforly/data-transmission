@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<registration>
+    <localId>1</localId>
+    <dropBox>
+        <location>
+            <host>localhost</host>
+            <directory>~/spade/dropbox/scenario/warehouse</directory>
+        </location>
+        <pattern>
+            <regex>mock.*</regex>
+            <semaphoreSuffix>.sem</semaphoreSuffix>
+        </pattern>
+        <mapping>
+            <dataSuffix>.data</dataSuffix>
+        </mapping>
+    </dropBox>
+    <warehouse/>
+</registration>

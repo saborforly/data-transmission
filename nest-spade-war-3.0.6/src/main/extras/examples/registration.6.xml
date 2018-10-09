@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<inboundRegistration>
+    <localId>6</localId>
+    <inboundTransfer>
+        <name>Receive From Shipper</name>
+        <remoteId>5</remoteId>
+    </inboundTransfer>
+    <warehouse>false</warehouse>
+    <outboundTransfers>
+        <name>Ship to Receiver</name>
+    </outboundTransfers>
+</inboundRegistration>

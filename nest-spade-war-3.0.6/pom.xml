@@ -1,0 +1,247 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>gov.lbl.nest</groupId>
+    <artifactId>spade</artifactId>
+    <version>3.0.6</version>
+
+    <name>Spade Assembly</name>
+    <packaging>war</packaging>
+    <url>http://nest.lbl.gov/spade/spade</url>
+    <inceptionYear>2011</inceptionYear>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <nest.common.jee.version>0.25.0</nest.common.jee.version>
+        <spade.ajax.version>${project.version}</spade.ajax.version>
+        <spade.core.version>${project.version}</spade.core.version>
+        <spade.registry.version>${project.version}</spade.registry.version>
+        <spade.warehouse.version>${project.version}</spade.warehouse.version>
+    </properties>
+
+    <profiles>
+        <profile>
+            <id>jboss.jpa</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+                <property>
+                    <name>!useTomEE</name>
+                </property>
+            </activation>
+            <properties>
+                <jee.datasource.resource>java:jboss/datasources/</jee.datasource.resource>
+                <jee.jpa.libs>../WEB-INF/lib/</jee.jpa.libs>
+            </properties>
+        </profile>
+        <profile>
+            <id>tomee.jpa</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+                <property>
+                    <name>useTomEE</name>
+                </property>
+            </activation>
+            <properties>
+                <jee.datasource.resource></jee.datasource.resource>
+                <jee.jpa.libs>../lib/</jee.jpa.libs>
+            </properties>
+        </profile>
+        <profile>
+            <id>spadeDS</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+                <property>
+                    <name>!useExampleDS</name>
+                </property>
+            </activation>
+            <build>
+                <resources>
+                    <resource>
+                        <directory>src/main/resources</directory>
+                        <filtering>true</filtering>
+                    </resource>
+                </resources>
+            </build>
+        </profile>
+        <profile>
+            <id>exampleDS</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+                <property>
+                    <name>useExampleDS</name>
+                </property>
+            </activation>
+            <build>
+                <resources>
+                    <resource>
+                        <directory>src/main/resources</directory>
+                        <filtering>true</filtering>
+                        <excludes>
+                            <exclude>**/persistence.xml</exclude>
+                        </excludes>
+                    </resource>
+                    <resource>
+                        <directory>src/alternate/exampleDS/resources</directory>
+                        <filtering>true</filtering>
+                    </resource>
+                </resources>
+            </build>
+        </profile>
+    </profiles>
+
+    <distributionManagement>
+        <site>
+            <id>nest-website</id>
+            <url>scp://nest.lbl.gov/home/nest/public_html/projects/spade/war</url>
+        </site>
+    </distributionManagement>
+
+    <repositories>
+        <repository>
+            <id>nest-maven3-projects</id>
+            <name>NEST Maven 3 repository</name>
+            <url>http://nest.lbl.gov/maven3/repository/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>javax</groupId>
+            <artifactId>javaee-api</artifactId>
+            <version>7.0</version>
+            <scope>provided</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>gov.lbl.nest.spade</groupId>
+            <artifactId>ajax</artifactId>
+            <type>war</type>
+            <version>${spade.ajax.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>gov.lbl.nest.spade</groupId>
+            <artifactId>core</artifactId>
+            <version>${spade.core.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>gov.lbl.nest.spade</groupId>
+            <artifactId>warehouse</artifactId>
+            <version>${spade.warehouse.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.12</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>1.7.12</version>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <extensions>
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-ssh</artifactId>
+                <version>2.10</version>
+            </extension>
+        </extensions>
+        <plugins>
+            <plugin>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>2.6</version>
+                <configuration>
+                    <!-- Java EE 6 doesn't require web.xml, Maven needs to catch 
+                        up! -->
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
+                    <configuration>
+                        <overlays>
+                            <overlay>
+                                <!-- empty groupId/artifactId represents the current build -->
+                            </overlay>
+                            <overlay>
+                                <groupId>gov.lbl.nest.spade</groupId>
+                                <artifactId>spade-ajax</artifactId>
+                                <excludes>
+                                    <exclude>WEB-INF/classes/**/*.class</exclude>
+                                </excludes>
+                            </overlay>
+                        </overlays>
+                    </configuration>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.3</version>
+                <configuration>
+                    <source>1.7</source>
+                    <target>1.7</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-site-plugin</artifactId>
+                <version>3.4</version>
+                <configuration>
+                    <locales>en</locales>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <reporting>
+        <excludeDefaults>true</excludeDefaults>
+        <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.10.3</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-report-plugin</artifactId>
+                <version>2.19</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <version>2.8.1</version>
+                <configuration>
+                    <dependencyDetailsEnabled>false</dependencyDetailsEnabled>
+                    <dependencyLocationsEnabled>false</dependencyLocationsEnabled>
+                </configuration>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>scm</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+            </plugin>
+
+        </plugins>
+    </reporting>
+
+</project>
